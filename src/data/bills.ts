@@ -43,8 +43,10 @@ function normalizeDateInput(dateStr: string): string | null {
     return null;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (iso) {
+    const [, year, month, day] = iso;
+    return `${year}-${month}-${day}`;
   }
 
   const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -53,14 +55,7 @@ function normalizeDateInput(dateStr: string): string | null {
     return `${year}-${month}-${day}`;
   }
 
-  const fromDate = new Date(value);
-  if (Number.isNaN(fromDate.getTime())) {
-    return null;
-  }
-  const year = fromDate.getFullYear();
-  const month = String(fromDate.getMonth() + 1).padStart(2, "0");
-  const day = String(fromDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return null;
 }
 
 export function dateSortKey(dateStr: string): number {

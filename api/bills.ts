@@ -27,28 +27,23 @@ const validStatus = new Set<BillStatus>(["paid", "pending", "overdue", "schedule
 function toIsoDate(value: unknown): string | null {
   if (typeof value === "string") {
     const input = value.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-      return input;
+    const iso = input.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+    if (iso) {
+      const [, year, month, day] = iso;
+      return `${year}-${month}-${day}`;
     }
     const br = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (br) {
       const [, day, month, year] = br;
       return `${year}-${month}-${day}`;
     }
-    const parsed = new Date(input);
-    if (!Number.isNaN(parsed.getTime())) {
-      const year = parsed.getFullYear();
-      const month = String(parsed.getMonth() + 1).padStart(2, "0");
-      const day = String(parsed.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    }
     return null;
   }
 
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, "0");
-    const day = String(value.getDate()).padStart(2, "0");
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(value.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 

@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import process from "node:process";
+import process from "process";
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -41,9 +41,13 @@ function getDatabaseUrl(): string {
 export function getPool(): Pool {
   const runtime = globalThis as typeof globalThis & { __neonPool?: Pool };
   if (!runtime.__neonPool) {
+    const connectionString = getDatabaseUrl();
     runtime.__neonPool = new Pool({
-      connectionString: getDatabaseUrl(),
+      connectionString,
       ssl: { rejectUnauthorized: false },
+      max: 10, // Limite de conexões para ambiente serverless
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
     });
   }
   return runtime.__neonPool;

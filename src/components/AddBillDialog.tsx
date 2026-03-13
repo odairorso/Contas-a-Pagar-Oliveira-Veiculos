@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import type { Bill, BillStatus } from "@/data/bills";
 
 const categories = ["Aluguel", "Utilidades", "Telecomunicações", "Suprimentos", "Serviços", "Seguros", "Software", "Manutenção", "Outros"];
@@ -40,8 +41,44 @@ export function AddBillDialog({ onAdd, suppliers, onRefreshSuppliers }: AddBillD
     status: "pending" as BillStatus,
   });
 
+  const parseDueDateToIso = (value: string): string | null => {
+    const input = value.trim();
+    const brMatch = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!brMatch) {
+      return null;
+    }
+
+    const day = Number(brMatch[1]);
+    const month = Number(brMatch[2]);
+    const year = Number(brMatch[3]);
+    const date = new Date(year, month - 1, day);
+    const isValid = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+
+    if (!isValid) {
+      return null;
+    }
+
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  };
+
+  const normalizeDueDateInput = (value: string): string => {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 2) {
+      return digits;
+    }
+    if (digits.length <= 4) {
+      return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    }
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const dueDateIso = parseDueDateToIso(form.dueDate);
+    if (!dueDateIso) {
+      toast.error("Informe o vencimento no formato dd/mm/aaaa.");
+      return;
+    }
     const newBill: Bill = {
       id: Date.now().toString(),
       vendor: form.vendor,
@@ -141,7 +178,15 @@ export function AddBillDialog({ onAdd, suppliers, onRefreshSuppliers }: AddBillD
             </div>
             <div className="space-y-2">
               <Label htmlFor="dueDate">Vencimento</Label>
-              <Input id="dueDate" type="date" required value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              <Input
+                id="dueDate"
+                required
+                value={form.dueDate}
+                onChange={(e) => setForm({ ...form, dueDate: normalizeDueDateInput(e.target.value) })}
+                placeholder="dd/mm/aaaa"
+                inputMode="numeric"
+                maxLength={10}
+              />
             </div>
           </div>
           <div className="space-y-2">
