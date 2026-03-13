@@ -1,6 +1,6 @@
-import { ensureSuppliersTable, getPool, type SupplierRow } from "./_db";
+import { ensureSuppliersTable, getSql, type SupplierRow } from "./_db";
 
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "edge" };
 
 interface Supplier {
   id: string;
@@ -49,13 +49,13 @@ function parseSupplier(body: unknown): Omit<Supplier, "createdAt"> | null {
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await ensureSuppliersTable();
-    const pool = getPool();
+    const sql = getSql();
 
     if (req.method === "GET") {
-      const result = await pool.query<SupplierRow>(
-        "SELECT id, name, email, phone, created_at FROM suppliers ORDER BY created_at DESC"
-      );
-      res.status(200).json(result.rows.map(toSupplier));
+      const rows = await sql`
+        SELECT id, name, email, phone, created_at FROM suppliers ORDER BY created_at DESC
+      `;
+      res.status(200).json(rows.map((row) => toSupplier(row as SupplierRow)));
       return;
     }
 
@@ -65,13 +65,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         res.status(400).json({ error: "Payload inválido" });
         return;
       }
-      const result = await pool.query<SupplierRow>(
-        `INSERT INTO suppliers (id, name, email, phone)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, name, email, phone, created_at`,
-        [supplier.id, supplier.name, supplier.email || null, supplier.phone || null]
-      );
-      res.status(201).json(toSupplier(result.rows[0]));
+      const rows = await sql`
+        INSERT INTO suppliers (id, name, email, phone)
+        VALUES (${supplier.id}, ${supplier.name}, ${supplier.email || null}, ${supplier.phone || null})
+        RETURNING id, name, email, phone, created_at
+      `;
+      res.status(201).json(toSupplier(rows[0] as SupplierRow));
       return;
     }
 

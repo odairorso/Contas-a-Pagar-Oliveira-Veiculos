@@ -1,6 +1,6 @@
-import { ensureBillsTable, getPool, type BillRow } from "./_db";
+import { ensureBillsTable, getSql, type BillRow } from "./_db";
 
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "edge" };
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -104,13 +104,15 @@ function parseBill(body: unknown): Bill | null {
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await ensureBillsTable();
-    const pool = getPool();
+    const sql = getSql();
 
     if (req.method === "GET") {
-      const result = await pool.query<BillRow>(
-        "SELECT id, vendor, description, amount, due_date, status, category FROM bills ORDER BY due_date ASC, created_at DESC"
-      );
-      res.status(200).json(result.rows.map(toBill));
+      const rows = await sql`
+        SELECT id, vendor, description, amount, due_date, status, category 
+        FROM bills 
+        ORDER BY due_date ASC, created_at DESC
+      `;
+      res.status(200).json(rows.map((row) => toBill(row as BillRow)));
       return;
     }
 
@@ -121,14 +123,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
       }
 
-      const result = await pool.query<BillRow>(
-        `INSERT INTO bills (id, vendor, description, amount, due_date, status, category)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id, vendor, description, amount, due_date, status, category`,
-        [bill.id, bill.vendor, bill.description, bill.amount, bill.dueDate, bill.status, bill.category]
-      );
+      const rows = await sql`
+        INSERT INTO bills (id, vendor, description, amount, due_date, status, category)
+        VALUES (${bill.id}, ${bill.vendor}, ${bill.description}, ${bill.amount}, ${bill.dueDate}, ${bill.status}, ${bill.category})
+        RETURNING id, vendor, description, amount, due_date, status, category
+      `;
 
-      res.status(201).json(toBill(result.rows[0]));
+      res.status(201).json(toBill(rows[0] as BillRow));
       return;
     }
 
