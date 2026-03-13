@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MoreHorizontal, Eye, CheckCircle2, Trash2 } from "lucide-react";
+import { MoreHorizontal, Eye, CheckCircle2, Trash2, Pencil } from "lucide-react";
 import { type Bill, formatCurrency, formatDate } from "@/data/bills";
 import { StatusBadge } from "./StatusBadge";
 import {
@@ -22,24 +22,25 @@ interface BillsTableProps {
   bills: Bill[];
   onMarkPaid: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (bill: Bill) => void;
 }
 
-export function BillsTable({ bills, onMarkPaid, onDelete }: BillsTableProps) {
+export function BillsTable({ bills, onMarkPaid, onDelete, onEdit }: BillsTableProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: 0.1 }}
-      className="bg-card rounded-xl border shadow-sm overflow-hidden"
+      className="bg-card rounded-xl border shadow-sm overflow-x-auto"
     >
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="font-semibold text-muted-foreground">Fornecedor</TableHead>
-            <TableHead className="font-semibold text-muted-foreground">Categoria</TableHead>
-            <TableHead className="font-semibold text-muted-foreground">Vencimento</TableHead>
-            <TableHead className="font-semibold text-muted-foreground text-right">Valor</TableHead>
-            <TableHead className="font-semibold text-muted-foreground">Status</TableHead>
+            <TableHead className="font-semibold text-muted-foreground whitespace-nowrap">Fornecedor</TableHead>
+            <TableHead className="font-semibold text-muted-foreground whitespace-nowrap">Categoria</TableHead>
+            <TableHead className="font-semibold text-muted-foreground whitespace-nowrap">Vencimento</TableHead>
+            <TableHead className="font-semibold text-muted-foreground text-right whitespace-nowrap">Valor</TableHead>
+            <TableHead className="font-semibold text-muted-foreground whitespace-nowrap">Status</TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
@@ -52,16 +53,16 @@ export function BillsTable({ bills, onMarkPaid, onDelete }: BillsTableProps) {
               transition={{ delay: i * 0.03 }}
               className="border-b last:border-0 hover:bg-muted/50 transition-colors"
             >
-              <TableCell>
+              <TableCell className="whitespace-nowrap">
                 <div>
                   <p className="font-medium text-card-foreground text-sm">{bill.vendor}</p>
-                  <p className="text-xs text-muted-foreground">{bill.description}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[150px]">{bill.description}</p>
                 </div>
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{bill.category}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">{formatDate(bill.dueDate)}</TableCell>
-              <TableCell className="text-right font-semibold text-sm text-card-foreground">{formatCurrency(bill.amount)}</TableCell>
-              <TableCell><StatusBadge status={bill.status} /></TableCell>
+              <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{bill.category}</TableCell>
+              <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(bill.dueDate)}</TableCell>
+              <TableCell className="text-right font-semibold text-sm text-card-foreground whitespace-nowrap">{formatCurrency(bill.amount)}</TableCell>
+              <TableCell className="whitespace-nowrap"><StatusBadge status={bill.status} /></TableCell>
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -70,9 +71,12 @@ export function BillsTable({ bills, onMarkPaid, onDelete }: BillsTableProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem className="gap-2">
-                      <Eye className="w-4 h-4" /> Detalhes
+                    <DropdownMenuItem className="gap-2" onClick={() => onEdit(bill)}>
+                      <Pencil className="w-4 h-4" /> Editar
                     </DropdownMenuItem>
+                    {/* <DropdownMenuItem className="gap-2">
+                      <Eye className="w-4 h-4" /> Detalhes
+                    </DropdownMenuItem> */}
                     {bill.status !== "paid" && (
                       <DropdownMenuItem className="gap-2" onClick={() => onMarkPaid(bill.id)}>
                         <CheckCircle2 className="w-4 h-4" /> Marcar como pago

@@ -64,6 +64,51 @@ function getStatus(body: unknown): BillStatus | null {
   return status as BillStatus;
 }
 
+// Helper to validate and parse full bill update
+function parseBillUpdate(body: unknown): Partial<Bill> | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+  const payload = body as Record<string, unknown>;
+  
+  // Basic validation
+  if (
+    typeof payload.vendor !== "string" ||
+    typeof payload.description !== "string" ||
+    typeof payload.category !== "string"
+  ) {
+    return null;
+  }
+
+  const amount = Number(payload.amount);
+  if (!Number.isFinite(amount)) return null;
+
+  // Validate status if present
+  let status: BillStatus | undefined;
+  if (typeof payload.status === "string" && validStatus.has(payload.status as BillStatus)) {
+    status = payload.status as BillStatus;
+  } else if (payload.status) {
+    return null; // Invalid status provided
+  }
+
+  // Validate dueDate (expect ISO or YYYY-MM-DD)
+  let dueDate = "";
+  if (typeof payload.dueDate === "string") {
+     dueDate = payload.dueDate;
+  } else {
+    return null;
+  }
+
+  return {
+    vendor: payload.vendor,
+    description: payload.description,
+    amount,
+    dueDate,
+    status,
+    category: payload.category
+  };
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await ensureBillsTable();
@@ -72,6 +117,45 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     if (!id) {
       res.status(400).json({ error: "ID inválido" });
+      return;
+    }
+
+    // PATCH can be used for status update OR full update depending on payload
+    // But for clarity, we'll keep PATCH for status and use PUT for full update, 
+    // or just handle both in PUT/PATCH.
+    // The user requirement implies editing the bill details.
+    
+    if (req.method === "PUT") {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const updates = parseBillUpdate(body);
+
+      if (!updates) {
+        res.status(400).json({ error: "Dados inválidos para atualização" });
+        return;
+      }
+
+      // We need to ensure status is present, or default to current? 
+      // Usually PUT replaces the resource. We'll assume the frontend sends all fields.
+      
+      const rows = await sql`
+        UPDATE bills
+        SET 
+          vendor = ${updates.vendor}, 
+          description = ${updates.description}, 
+          amount = ${updates.amount}, 
+          due_date = ${updates.dueDate}, 
+          status = ${updates.status}, 
+          category = ${updates.category}
+        WHERE id = ${id}
+        RETURNING id, vendor, description, amount, due_date, status, category
+      `;
+
+      if (rows.length === 0) {
+        res.status(404).json({ error: "Conta não encontrada" });
+        return;
+      }
+
+      res.status(200).json(toBill(rows[0] as BillRow));
       return;
     }
 

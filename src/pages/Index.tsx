@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { MetricCard } from "@/components/MetricCard";
 import { BillsTable } from "@/components/BillsTable";
 import { AddBillDialog } from "@/components/AddBillDialog";
+import { EditBillDialog } from "@/components/EditBillDialog";
 import { dateSortKey, formatCurrency, monthKeyFromDate, monthLabelFromDate, type Bill, type BillStatus } from "@/data/bills";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ const Index = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierForm, setSupplierForm] = useState({ name: "", email: "", phone: "" });
   const [isSavingSupplier, setIsSavingSupplier] = useState(false);
+  const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [source, setSource] = useState<DataSource>("local");
   const page = pageByPath[location.pathname] ?? "dashboard";
@@ -253,6 +255,27 @@ const Index = () => {
     toast.success("Conta removida!");
   };
 
+  const handleSaveEdit = async (bill: Bill) => {
+    setBills((prev) => prev.map((b) => (b.id === bill.id ? bill : b)));
+    
+    if (source === "api") {
+      try {
+        const response = await fetch(`/api/bills/${bill.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bill),
+        });
+        if (!response.ok) {
+          throw new Error("Falha ao salvar edição");
+        }
+      } catch {
+        toast.error("Alteração salva localmente, mas falhou ao sincronizar.");
+      }
+    }
+    toast.success("Conta atualizada!");
+    setEditingBill(null);
+  };
+
   const handleAdd = async (bill: Bill) => {
     if (source !== "api") {
       setBills((prev) => [bill, ...prev]);
@@ -334,7 +357,7 @@ const Index = () => {
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
 
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 p-4 pt-16 md:p-8 overflow-auto">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -427,6 +450,14 @@ const Index = () => {
                 bills={filteredBills}
                 onMarkPaid={(id) => void handleMarkPaid(id)}
                 onDelete={(id) => void handleDelete(id)}
+                onEdit={(bill) => setEditingBill(bill)}
+              />
+              <EditBillDialog
+                open={!!editingBill}
+                onOpenChange={(open) => !open && setEditingBill(null)}
+                bill={editingBill}
+                onSave={(bill) => void handleSaveEdit(bill)}
+                suppliers={supplierNames}
               />
             </>
           )}

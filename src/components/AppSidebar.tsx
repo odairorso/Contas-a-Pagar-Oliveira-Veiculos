@@ -1,6 +1,8 @@
-import { LayoutDashboard, FileText, Users, BarChart3, Settings, CreditCard } from "lucide-react";
+import { LayoutDashboard, FileText, Users, BarChart3, Settings, CreditCard, Menu } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 interface NavItem {
   icon: React.ElementType;
@@ -16,9 +18,9 @@ const navItems: NavItem[] = [
   { icon: Settings, label: "Configurações", to: "/configuracoes" },
 ];
 
-export function AppSidebar() {
+function SidebarContent() {
   return (
-    <aside className="w-64 min-h-screen bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
       <div className="p-6 flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center">
           <CreditCard className="w-5 h-5 text-sidebar-primary-foreground" />
@@ -53,6 +55,29 @@ export function AppSidebar() {
         <p className="text-xs font-medium text-sidebar-foreground">Precisa de ajuda?</p>
         <p className="text-xs text-sidebar-muted mt-1">Acesse nossa central de suporte</p>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+export function AppSidebar() {
+  return (
+    <>
+      <aside className="hidden md:flex w-64 min-h-screen bg-sidebar text-sidebar-foreground flex-col shrink-0 border-r">
+        <SidebarContent />
+      </aside>
+
+      <div className="md:hidden fixed top-4 left-4 z-50">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="bg-background shadow-sm border">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0 border-r bg-sidebar">
+            <SidebarContent />
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
   );
 }
