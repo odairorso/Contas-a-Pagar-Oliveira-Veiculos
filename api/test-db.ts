@@ -1,6 +1,7 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getPool } from "./_db";
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const pool = getPool();
     const result = await pool.query("SELECT NOW() as now, current_database() as db");

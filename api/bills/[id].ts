@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ensureBillsTable, getPool, type BillRow } from "../_db";
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
@@ -10,17 +11,6 @@ interface Bill {
   dueDate: string;
   status: BillStatus;
   category: string;
-}
-
-interface ApiRequest {
-  method?: string;
-  body?: unknown;
-  query?: Record<string, string | string[] | undefined>;
-}
-
-interface ApiResponse {
-  status: (code: number) => ApiResponse;
-  json: (data: unknown) => void;
 }
 
 const validStatus = new Set<BillStatus>(["paid", "pending", "overdue", "scheduled"]);
@@ -37,8 +27,8 @@ function toBill(row: BillRow): Bill {
   };
 }
 
-function getId(req: ApiRequest): string | null {
-  const raw = req.query?.id;
+function getId(req: VercelRequest): string | null {
+  const raw = req.query.id;
   if (typeof raw === "string") {
     return raw;
   }
@@ -62,7 +52,10 @@ function getStatus(body: unknown): BillStatus | null {
   return status as BillStatus;
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   try {
     await ensureBillsTable();
     const pool = getPool();
