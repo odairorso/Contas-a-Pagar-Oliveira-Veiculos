@@ -1,7 +1,6 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { ensureBillsTable, getPool, type BillRow } from "./_db";
+import { ensureBillsTable, getSql, type BillRow } from "./_db.js";
 
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "edge" };
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -13,6 +12,16 @@ interface Bill {
   dueDate: string;
   status: BillStatus;
   category: string;
+}
+
+interface ApiRequest {
+  method?: string;
+  body?: unknown;
+}
+
+interface ApiResponse {
+  status: (code: number) => ApiResponse;
+  json: (data: unknown) => void;
 }
 
 const validStatus = new Set<BillStatus>(["paid", "pending", "overdue", "scheduled"]);
@@ -92,10 +101,7 @@ function parseBill(body: unknown): Bill | null {
   };
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await ensureBillsTable();
     const sql = getSql();

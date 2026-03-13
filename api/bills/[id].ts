@@ -1,5 +1,6 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { ensureBillsTable, getPool, type BillRow } from "../_db";
+import { ensureBillsTable, getSql, type BillRow } from "../_db.js";
+
+export const config = { runtime: "edge" };
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -11,6 +12,17 @@ interface Bill {
   dueDate: string;
   status: BillStatus;
   category: string;
+}
+
+interface ApiRequest {
+  method?: string;
+  body?: unknown;
+  query?: Record<string, string | string[]>;
+}
+
+interface ApiResponse {
+  status: (code: number) => ApiResponse;
+  json: (data: unknown) => void;
 }
 
 const validStatus = new Set<BillStatus>(["paid", "pending", "overdue", "scheduled"]);
@@ -27,8 +39,8 @@ function toBill(row: BillRow): Bill {
   };
 }
 
-function getId(req: VercelRequest): string | null {
-  const raw = req.query.id;
+function getId(req: ApiRequest): string | null {
+  const raw = req.query?.id;
   if (typeof raw === "string") {
     return raw;
   }
@@ -52,13 +64,10 @@ function getStatus(body: unknown): BillStatus | null {
   return status as BillStatus;
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await ensureBillsTable();
-    const pool = getPool();
+    const sql = getSql();
     const id = getId(req);
 
     if (!id) {
@@ -73,26 +82,27 @@ export default async function handler(
         return;
       }
 
-      const result = await pool.query<BillRow>(
-        `UPDATE bills
-         SET status = $1
-         WHERE id = $2
-         RETURNING id, vendor, description, amount, due_date, status, category`,
-        [status, id]
-      );
+      const rows = await sql`
+        UPDATE bills
+        SET status = ${status}
+        WHERE id = ${id}
+        RETURNING id, vendor, description, amount, due_date, status, category
+      `;
 
-      if (result.rowCount === 0) {
+      if (rows.length === 0) {
         res.status(404).json({ error: "Conta não encontrada" });
         return;
       }
 
-      res.status(200).json(toBill(result.rows[0]));
+      res.status(200).json(toBill(rows[0] as BillRow));
       return;
     }
 
     if (req.method === "DELETE") {
-      const result = await pool.query("DELETE FROM bills WHERE id = $1", [id]);
-      if (result.rowCount === 0) {
+      const rows = await sql`
+        DELETE FROM bills WHERE id = ${id} RETURNING id
+      `;
+      if (rows.length === 0) {
         res.status(404).json({ error: "Conta não encontrada" });
         return;
       }

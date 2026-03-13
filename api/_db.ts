@@ -1,5 +1,4 @@
 import { neon } from "@neondatabase/serverless";
-import process from "process";
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -22,6 +21,10 @@ export interface SupplierRow {
 }
 
 function getDatabaseUrl(): string {
+  // Em ambiente Vercel Edge, process.env pode não estar disponível como módulo Node.
+  // Vamos tentar acessar globalmente ou via import.meta.env se fosse Vite puro, mas em API Functions
+  // o padrão é process.env ser injetado. Para evitar erro de "unsupported module process",
+  // acessamos process.env sem importar o pacote 'process'.
   const dbUrl =
     process.env.DATABASE_URL ||
     process.env.NEON_DATABASE_URL ||
