@@ -6,6 +6,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { BillsTable } from "@/components/BillsTable";
 import { AddBillDialog } from "@/components/AddBillDialog";
 import { EditBillDialog } from "@/components/EditBillDialog";
+import { Reports } from "@/components/Reports";
 import { dateSortKey, formatCurrency, monthKeyFromDate, monthLabelFromDate, type Bill, type BillStatus } from "@/data/bills";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -545,21 +546,12 @@ const Index = () => {
           )}
 
           {!isLoading && page === "relatorios" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Consolidado mensal</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {monthlyTotals.map((item) => (
-                  <div key={item.month} className="grid grid-cols-1 md:grid-cols-4 gap-2 p-3 border rounded-lg">
-                    <p className="font-medium text-sm">{item.month}</p>
-                    <p className="text-sm text-muted-foreground">Total: {formatCurrency(item.total)}</p>
-                    <p className="text-sm text-muted-foreground">Pago: {formatCurrency(item.paid)}</p>
-                    <p className="text-sm text-muted-foreground">Aberto: {formatCurrency(item.open)}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <Reports 
+              bills={bills} 
+              onMarkPaid={(id) => void handleMarkPaid(id)}
+              onDelete={(id) => void handleDelete(id)}
+              onEdit={(bill) => setEditingBill(bill)}
+            />
           )}
 
           {!isLoading && page === "configuracoes" && (
