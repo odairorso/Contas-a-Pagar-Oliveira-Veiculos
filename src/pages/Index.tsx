@@ -57,8 +57,16 @@ const Index = () => {
 
   const readApiError = async (response: Response): Promise<string> => {
     try {
-      const payload = (await response.json()) as ApiErrorPayload;
-      return payload.details || payload.error || `HTTP ${response.status}`;
+      const raw = await response.text();
+      if (!raw) {
+        return `HTTP ${response.status}`;
+      }
+      try {
+        const payload = JSON.parse(raw) as ApiErrorPayload;
+        return payload.details || payload.error || `HTTP ${response.status}`;
+      } catch {
+        return `${response.status} ${raw.slice(0, 180)}`;
+      }
     } catch {
       return `HTTP ${response.status}`;
     }

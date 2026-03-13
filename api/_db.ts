@@ -22,8 +22,13 @@ export interface SupplierRow {
 }
 
 function getDatabaseUrl(): string {
-  const dbUrl = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.POSTGRES_URL;
-  
+  const dbUrl =
+    process.env.DATABASE_URL ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING;
+
   if (!dbUrl) {
     throw new Error("DATABASE_URL não configurado nas variáveis de ambiente da Vercel.");
   }
@@ -41,13 +46,12 @@ function getDatabaseUrl(): string {
 export function getPool(): Pool {
   const runtime = globalThis as typeof globalThis & { __neonPool?: Pool };
   if (!runtime.__neonPool) {
-    const connectionString = getDatabaseUrl();
     runtime.__neonPool = new Pool({
-      connectionString,
+      connectionString: getDatabaseUrl(),
       ssl: { rejectUnauthorized: false },
-      max: 10, // Limite de conexões para ambiente serverless
+      max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000,
     });
   }
   return runtime.__neonPool;
