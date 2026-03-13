@@ -121,6 +121,33 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     if (req.method === "POST") {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      
+      // Batch insert logic
+      if (Array.isArray(body)) {
+        const bills = body.map(parseBill).filter((b): b is Bill => b !== null);
+        
+        if (bills.length === 0) {
+          res.status(400).json({ error: "Nenhum item válido encontrado na lista" });
+          return;
+        }
+
+        // Using Promise.all for batch insert since Neon HTTP driver supports concurrent requests
+        const results = await Promise.all(
+          bills.map(bill => 
+            sql`
+              INSERT INTO bills (id, vendor, description, amount, due_date, status, category)
+              VALUES (${bill.id}, ${bill.vendor}, ${bill.description}, ${bill.amount}, ${bill.dueDate}, ${bill.status}, ${bill.category})
+              RETURNING id, vendor, description, amount, due_date, status, category
+            `
+          )
+        );
+        
+        const flatResults = results.map(r => toBill(r[0] as BillRow));
+        res.status(201).json(flatResults);
+        return;
+      }
+
+      // Single insert logic
       const bill = parseBill(body);
       
       if (!bill) {

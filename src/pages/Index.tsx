@@ -198,7 +198,7 @@ const Index = () => {
     return [...grouped.values()].sort((a, b) => a.key.localeCompare(b.key));
   }, [bills]);
 
-  const syncCreatedBill = async (bill: Bill): Promise<Bill> => {
+  const syncCreatedBill = async (bill: Bill | Bill[]): Promise<Bill | Bill[]> => {
     const response = await fetch("/api/bills", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -208,7 +208,7 @@ const Index = () => {
       const message = await readApiError(response);
       throw new Error(`Falha ao salvar conta: ${message}`);
     }
-    return (await response.json()) as Bill;
+    return (await response.json()) as Bill | Bill[];
   };
 
   const syncPaidBill = async (id: string): Promise<void> => {
@@ -276,20 +276,35 @@ const Index = () => {
     setEditingBill(null);
   };
 
-  const handleAdd = async (bill: Bill) => {
+  const handleAdd = async (bill: Bill | Bill[]) => {
     if (source !== "api") {
-      setBills((prev) => [bill, ...prev]);
-      toast.success("Nova conta adicionada!");
+      setBills((prev) => {
+        if (Array.isArray(bill)) {
+          return [...bill, ...prev];
+        }
+        return [bill, ...prev];
+      });
+      toast.success(Array.isArray(bill) ? "Novas contas adicionadas!" : "Nova conta adicionada!");
       return;
     }
     try {
       const created = await syncCreatedBill(bill);
-      setBills((prev) => [created, ...prev]);
+      setBills((prev) => {
+        if (Array.isArray(created)) {
+          return [...created, ...prev];
+        }
+        return [created as Bill, ...prev];
+      });
+      toast.success(Array.isArray(created) ? "Novas contas adicionadas!" : "Nova conta adicionada!");
     } catch {
-      setBills((prev) => [bill, ...prev]);
+      setBills((prev) => {
+        if (Array.isArray(bill)) {
+          return [...bill, ...prev];
+        }
+        return [bill, ...prev];
+      });
       toast.error("Conta criada localmente, sem sincronizar no banco.");
     }
-    toast.success("Nova conta adicionada!");
   };
 
   const handleAddSupplier = async () => {
@@ -368,9 +383,7 @@ const Index = () => {
               <AddBillDialog
                 onAdd={(bill) => void handleAdd(bill)}
                 suppliers={supplierNames}
-                onRefreshSuppliers={() => {
-                  void loadSuppliers();
-                }}
+                onRefreshSuppliers={loadSuppliers}
               />
             )}
             {page !== "contas" && (
