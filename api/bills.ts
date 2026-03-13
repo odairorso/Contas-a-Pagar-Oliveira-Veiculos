@@ -1,5 +1,7 @@
 import { ensureBillsTable, getPool, type BillRow } from "./_db";
 
+export const config = { runtime: "nodejs" };
+
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
 interface Bill {

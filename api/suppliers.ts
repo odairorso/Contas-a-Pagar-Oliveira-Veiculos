@@ -1,5 +1,7 @@
 import { ensureSuppliersTable, getPool, type SupplierRow } from "./_db";
 
+export const config = { runtime: "nodejs" };
+
 interface Supplier {
   id: string;
   name: string;
