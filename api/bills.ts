@@ -1,6 +1,7 @@
-import { ensureBillsTable, getSql, type BillRow } from "./_db.js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { ensureBillsTable, getPool, type BillRow } from "./_db.js";
 
-export const config = { runtime: "edge" };
+export const config = { runtime: "nodejs" };
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -12,16 +13,6 @@ interface Bill {
   dueDate: string;
   status: BillStatus;
   category: string;
-}
-
-interface ApiRequest {
-  method?: string;
-  body?: unknown;
-}
-
-interface ApiResponse {
-  status: (code: number) => ApiResponse;
-  json: (data: unknown) => void;
 }
 
 const validStatus = new Set<BillStatus>(["paid", "pending", "overdue", "scheduled"]);
@@ -101,18 +92,19 @@ function parseBill(body: unknown): Bill | null {
   };
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   try {
     await ensureBillsTable();
-    const sql = getSql();
+    const pool = getPool();
 
     if (req.method === "GET") {
-      const rows = await sql`
-        SELECT id, vendor, description, amount, due_date, status, category 
-        FROM bills 
-        ORDER BY due_date ASC, created_at DESC
-      `;
-      res.status(200).json(rows.map((row) => toBill(row as BillRow)));
+      const result = await pool.query<BillRow>(
+        "SELECT id, vendor, description, amount, due_date, status, category FROM bills ORDER BY due_date ASC, created_at DESC"
+      );
+      res.status(200).json(result.rows.map(toBill));
       return;
     }
 
@@ -123,13 +115,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
       }
 
-      const rows = await sql`
-        INSERT INTO bills (id, vendor, description, amount, due_date, status, category)
-        VALUES (${bill.id}, ${bill.vendor}, ${bill.description}, ${bill.amount}, ${bill.dueDate}, ${bill.status}, ${bill.category})
-        RETURNING id, vendor, description, amount, due_date, status, category
-      `;
+      const result = await pool.query<BillRow>(
+        `INSERT INTO bills (id, vendor, description, amount, due_date, status, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, vendor, description, amount, due_date, status, category`,
+        [bill.id, bill.vendor, bill.description, bill.amount, bill.dueDate, bill.status, bill.category]
+      );
 
-      res.status(201).json(toBill(rows[0] as BillRow));
+      res.status(201).json(toBill(result.rows[0]));
       return;
     }
 

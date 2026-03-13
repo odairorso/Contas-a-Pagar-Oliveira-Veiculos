@@ -1,4 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
+import process from "process";
+
+// Configura o WebSocket para o driver Neon (necessário para ambientes serverless Node.js)
+neonConfig.webSocketConstructor = ws;
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -21,10 +26,6 @@ export interface SupplierRow {
 }
 
 function getDatabaseUrl(): string {
-  // Em ambiente Vercel Edge, process.env pode não estar disponível como módulo Node.
-  // Vamos tentar acessar globalmente ou via import.meta.env se fosse Vite puro, mas em API Functions
-  // o padrão é process.env ser injetado. Para evitar erro de "unsupported module process",
-  // acessamos process.env sem importar o pacote 'process'.
   const dbUrl =
     process.env.DATABASE_URL ||
     process.env.NEON_DATABASE_URL ||
@@ -36,17 +37,36 @@ function getDatabaseUrl(): string {
     throw new Error("DATABASE_URL não configurado nas variáveis de ambiente da Vercel.");
   }
 
-  return dbUrl.trim();
+  // O driver @neondatabase/serverless pode ter problemas com alguns parâmetros de query string extras
+  // como sslmode=require. Vamos limpar esses parâmetros para evitar erros de conexão.
+  try {
+    const url = new URL(dbUrl.trim());
+    url.searchParams.delete("sslmode");
+    return url.toString();
+  } catch {
+    return dbUrl.trim();
+  }
 }
 
-// Cliente SQL simples via HTTP (stateless, ideal para serverless/edge)
-export function getSql() {
-  return neon(getDatabaseUrl());
+// Cache do pool de conexões para reutilização entre invocações da função
+let pool: Pool | null = null;
+
+export function getPool(): Pool {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: getDatabaseUrl(),
+      ssl: true,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
+  }
+  return pool;
 }
 
 export async function ensureBillsTable(): Promise<void> {
-  const sql = getSql();
-  await sql`
+  const pool = getPool();
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS bills (
       id TEXT PRIMARY KEY,
       vendor TEXT NOT NULL,
@@ -57,12 +77,12 @@ export async function ensureBillsTable(): Promise<void> {
       category TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  `;
+  `);
 }
 
 export async function ensureSuppliersTable(): Promise<void> {
-  const sql = getSql();
-  await sql`
+  const pool = getPool();
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS suppliers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -70,5 +90,5 @@ export async function ensureSuppliersTable(): Promise<void> {
       phone TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  `;
+  `);
 }
