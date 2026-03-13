@@ -22,11 +22,20 @@ export interface SupplierRow {
 }
 
 function getDatabaseUrl(): string {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL não configurado");
+  const dbUrl = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.POSTGRES_URL;
+  
+  if (!dbUrl) {
+    throw new Error("DATABASE_URL não configurado nas variáveis de ambiente da Vercel.");
   }
-  return databaseUrl;
+
+  try {
+    const parsed = new URL(dbUrl.trim());
+    // Removemos channel_binding pois pode causar erros de handshake em alguns ambientes serverless
+    parsed.searchParams.delete("channel_binding");
+    return parsed.toString();
+  } catch {
+    return dbUrl.trim();
+  }
 }
 
 export function getPool(): Pool {

@@ -24,13 +24,44 @@ interface ApiResponse {
 
 const validStatus = new Set<BillStatus>(["paid", "pending", "overdue", "scheduled"]);
 
+function toIsoDate(value: unknown): string | null {
+  if (typeof value === "string") {
+    const input = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+      return input;
+    }
+    const br = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (br) {
+      const [, day, month, year] = br;
+      return `${year}-${month}-${day}`;
+    }
+    const parsed = new Date(input);
+    if (!Number.isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, "0");
+      const day = String(parsed.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
+}
+
 function toBill(row: BillRow): Bill {
   return {
     id: row.id,
     vendor: row.vendor,
     description: row.description,
     amount: Number(row.amount),
-    dueDate: row.due_date,
+    dueDate: toIsoDate(row.due_date) ?? "",
     status: row.status,
     category: row.category,
   };
@@ -47,7 +78,7 @@ function parseBill(body: unknown): Bill | null {
 
   const payload = body as Record<string, unknown>;
   const amount = Number(payload.amount);
-  const dueDate = String(payload.dueDate ?? "");
+  const dueDate = toIsoDate(payload.dueDate);
   const status = payload.status;
 
   if (
@@ -55,7 +86,7 @@ function parseBill(body: unknown): Bill | null {
     typeof payload.vendor !== "string" ||
     typeof payload.description !== "string" ||
     !Number.isFinite(amount) ||
-    dueDate.length === 0 ||
+    !dueDate ||
     !isBillStatus(status) ||
     typeof payload.category !== "string"
   ) {

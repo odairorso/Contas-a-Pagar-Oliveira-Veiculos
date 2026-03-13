@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { MetricCard } from "@/components/MetricCard";
 import { BillsTable } from "@/components/BillsTable";
 import { AddBillDialog } from "@/components/AddBillDialog";
-import { formatCurrency, type Bill, type BillStatus } from "@/data/bills";
+import { dateSortKey, formatCurrency, monthKeyFromDate, monthLabelFromDate, type Bill, type BillStatus } from "@/data/bills";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,11 @@ interface Supplier {
   createdAt: string;
 }
 
+interface ApiErrorPayload {
+  error?: string;
+  details?: string;
+}
+
 const pageByPath: Record<string, "dashboard" | "contas" | "fornecedores" | "relatorios" | "configuracoes"> = {
   "/": "dashboard",
   "/contas": "contas",
@@ -50,17 +55,28 @@ const Index = () => {
   const [source, setSource] = useState<DataSource>("local");
   const page = pageByPath[location.pathname] ?? "dashboard";
 
+  const readApiError = async (response: Response): Promise<string> => {
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      return payload.details || payload.error || `HTTP ${response.status}`;
+    } catch {
+      return `HTTP ${response.status}`;
+    }
+  };
+
   const loadBills = useCallback(async (): Promise<boolean> => {
     try {
       const response = await fetch("/api/bills");
       if (!response.ok) {
-        throw new Error("Falha ao buscar contas");
+        const message = await readApiError(response);
+        throw new Error(`Falha ao buscar contas: ${message}`);
       }
       const data = (await response.json()) as Bill[];
       setBills(data);
       return true;
-    } catch {
+    } catch (error) {
       setBills([]);
+      toast.error(error instanceof Error ? error.message : "Falha ao buscar contas");
       return false;
     }
   }, []);
@@ -69,13 +85,15 @@ const Index = () => {
     try {
       const response = await fetch("/api/suppliers");
       if (!response.ok) {
-        throw new Error("Falha ao buscar fornecedores");
+        const message = await readApiError(response);
+        throw new Error(`Falha ao buscar fornecedores: ${message}`);
       }
       const data = (await response.json()) as Supplier[];
       setSuppliers(data);
       return true;
-    } catch {
+    } catch (error) {
       setSuppliers([]);
+      toast.error(error instanceof Error ? error.message : "Falha ao buscar fornecedores");
       return false;
     }
   }, []);
@@ -117,13 +135,13 @@ const Index = () => {
       const matchesStatus = statusFilter === "all" || b.status === statusFilter;
       return matchesSearch && matchesStatus;
       })
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      .sort((a, b) => dateSortKey(a.dueDate) - dateSortKey(b.dueDate));
   }, [bills, search, statusFilter]);
 
   const upcomingBills = useMemo(() => {
     return [...bills]
       .filter((bill) => bill.status !== "paid")
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+      .sort((a, b) => dateSortKey(a.dueDate) - dateSortKey(b.dueDate))
       .slice(0, 5);
   }, [bills]);
 
@@ -153,9 +171,11 @@ const Index = () => {
   const monthlyTotals = useMemo(() => {
     const grouped = new Map<string, { key: string; month: string; total: number; paid: number; open: number }>();
     for (const bill of bills) {
-      const date = new Date(bill.dueDate);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const month = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" }).format(date);
+      const key = monthKeyFromDate(bill.dueDate);
+      const month = monthLabelFromDate(bill.dueDate);
+      if (!key || !month) {
+        continue;
+      }
       const current = grouped.get(key) ?? { key, month, total: 0, paid: 0, open: 0 };
       current.total += bill.amount;
       if (bill.status === "paid") {
@@ -175,7 +195,8 @@ const Index = () => {
       body: JSON.stringify(bill),
     });
     if (!response.ok) {
-      throw new Error("Falha ao salvar conta");
+      const message = await readApiError(response);
+      throw new Error(`Falha ao salvar conta: ${message}`);
     }
     return (await response.json()) as Bill;
   };
@@ -187,14 +208,16 @@ const Index = () => {
       body: JSON.stringify({ status: "paid" }),
     });
     if (!response.ok) {
-      throw new Error("Falha ao atualizar conta");
+      const message = await readApiError(response);
+      throw new Error(`Falha ao atualizar conta: ${message}`);
     }
   };
 
   const syncDeleteBill = async (id: string): Promise<void> => {
     const response = await fetch(`/api/bills/${id}`, { method: "DELETE" });
     if (!response.ok) {
-      throw new Error("Falha ao excluir conta");
+      const message = await readApiError(response);
+      throw new Error(`Falha ao excluir conta: ${message}`);
     }
   };
 

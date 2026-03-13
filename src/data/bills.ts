@@ -37,7 +37,65 @@ export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+function normalizeDateInput(dateStr: string): string | null {
+  const value = String(dateStr ?? "").trim();
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (br) {
+    const [, day, month, year] = br;
+    return `${year}-${month}-${day}`;
+  }
+
+  const fromDate = new Date(value);
+  if (Number.isNaN(fromDate.getTime())) {
+    return null;
+  }
+  const year = fromDate.getFullYear();
+  const month = String(fromDate.getMonth() + 1).padStart(2, "0");
+  const day = String(fromDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function dateSortKey(dateStr: string): number {
+  const normalized = normalizeDateInput(dateStr);
+  if (!normalized) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const [year, month, day] = normalized.split("-").map(Number);
+  return year * 10000 + month * 100 + day;
+}
+
+export function monthLabelFromDate(dateStr: string): string {
+  const normalized = normalizeDateInput(dateStr);
+  if (!normalized) {
+    return "";
+  }
+  const [year, month] = normalized.split("-").map(Number);
+  const date = new Date(year, month - 1, 1);
+  return new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" }).format(date);
+}
+
+export function monthKeyFromDate(dateStr: string): string {
+  const normalized = normalizeDateInput(dateStr);
+  if (!normalized) {
+    return "";
+  }
+  const [year, month] = normalized.split("-");
+  return `${year}-${month}`;
+}
+
 export function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return new Intl.DateTimeFormat("pt-BR").format(date);
+  const normalized = normalizeDateInput(dateStr);
+  if (!normalized) {
+    return dateStr;
+  }
+  const [year, month, day] = normalized.split("-");
+  return `${day}/${month}/${year}`;
 }
