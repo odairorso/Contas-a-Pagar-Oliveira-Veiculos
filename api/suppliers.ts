@@ -1,4 +1,4 @@
-import { ensureSuppliersTable, getSql, type SupplierRow } from "./_db";
+import { ensureSuppliersTable, getPool, type SupplierRow } from "./_db.js";
 
 export const config = { runtime: "edge" };
 
