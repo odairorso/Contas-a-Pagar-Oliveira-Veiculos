@@ -37,7 +37,17 @@ function getDatabaseUrl(): string {
     throw new Error("DATABASE_URL não configurado nas variáveis de ambiente da Vercel.");
   }
 
-  return dbUrl.trim();
+  // O driver @neondatabase/serverless pode ter problemas com alguns parâmetros de query string extras
+  // como sslmode=require e channel_binding=require que vêm na string padrão do Neon.
+  // Vamos limpar esses parâmetros para evitar erros de conexão.
+  try {
+    const url = new URL(dbUrl.trim());
+    url.searchParams.delete("sslmode");
+    url.searchParams.delete("channel_binding");
+    return url.toString();
+  } catch {
+    return dbUrl.trim();
+  }
 }
 
 export function getPool(): Pool {
