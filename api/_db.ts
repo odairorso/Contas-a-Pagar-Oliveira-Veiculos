@@ -1,5 +1,9 @@
-import { Pool } from "pg";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import process from "process";
+
+// Configura o WebSocket para o driver Neon (necessário para ambientes serverless)
+neonConfig.webSocketConstructor = ws;
 
 type BillStatus = "paid" | "pending" | "overdue" | "scheduled";
 
@@ -33,14 +37,7 @@ function getDatabaseUrl(): string {
     throw new Error("DATABASE_URL não configurado nas variáveis de ambiente da Vercel.");
   }
 
-  try {
-    const parsed = new URL(dbUrl.trim());
-    // Removemos channel_binding pois pode causar erros de handshake em alguns ambientes serverless
-    parsed.searchParams.delete("channel_binding");
-    return parsed.toString();
-  } catch {
-    return dbUrl.trim();
-  }
+  return dbUrl.trim();
 }
 
 export function getPool(): Pool {
@@ -48,7 +45,8 @@ export function getPool(): Pool {
   if (!runtime.__neonPool) {
     runtime.__neonPool = new Pool({
       connectionString: getDatabaseUrl(),
-      ssl: { rejectUnauthorized: false },
+      // @neondatabase/serverless gerencia SSL automaticamente, não precisa de config manual complexa
+      ssl: true,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
